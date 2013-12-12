@@ -1,0 +1,8 @@
+# Ignore compiled python
+*.pyc
+*.pyo
+
+# Ignore binaries
+*.dll
+*.pyd
+*.so
