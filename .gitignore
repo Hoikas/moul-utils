@@ -6,3 +6,6 @@
 *.dll
 *.pyd
 *.so
+
+# Test FileSrv from manifest.py
+FileSrv
