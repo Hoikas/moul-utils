@@ -226,7 +226,7 @@ def _make_age_manifest(agefile):
         for i in {agefile, "{}.fni".format(ageName), "{}.csv".format(ageName)}:
             abspath = os.path.join(_args.source, "dat", i)
             if os.path.isfile(abspath):
-                mfs.write(_do_file(os.path.join("dat", i), "dat"))
+                mfs.write(_do_file(os.path.join("dat", i), "GameBase"))
 
         # Read in age file and get the PRPs...
         res = plResManager()
@@ -236,13 +236,13 @@ def _make_age_manifest(agefile):
         # Grab the pages
         for i in range(info.getNumCommonPages(pvMoul)):
             prp = os.path.join("dat", info.getCommonPageFilename(i, pvMoul))
-            line = _do_file(prp, "dat")
+            line = _do_file(prp, "GameData")
             if line:
                 mfs.write(line)
         
         for i in range(info.getNumPages()):
             prp = os.path.join("dat", info.getPageFilename(i, pvMoul))
-            line = _do_file(prp, "dat")
+            line = _do_file(prp, "GameData")
             if line:
                 mfs.write(line)
         
@@ -258,7 +258,7 @@ def _make_age_manifest(agefile):
                     flags |= OGG_STEREO
                 if sbuf.flags & plSoundBuffer.kStreamCompressed:
                     flags |= OGG_STREAM
-                line = _do_file(os.path.join("sfx", sbuf.fileName), "sfx", flags)
+                line = _do_file(os.path.join("sfx", sbuf.fileName), "GameAudio", flags)
                 if line:
                     mfs.write(line)
 
@@ -301,7 +301,7 @@ def _make_client_manifest(preloader):
                 elif ext != ".ini":
                     continue
 
-                mfs.write(_do_file(item, "Client"))
+                mfs.write(_do_file(item, "GameClient"))
 
     source = _args.source
     destination = _args.destination
@@ -309,12 +309,12 @@ def _make_client_manifest(preloader):
     # Now, we make a cache of the CORE client files.
     items = {}
     if preloader:
-        _process_dir(items, source, destination, "Python", "Python", {".pak"}, True)
-        _process_dir(items, source, destination, "SDL", "SDL", {".sdl"}, True)
+        _process_dir(items, source, destination, "Python", "ClientPreload", {".pak"}, True)
+        _process_dir(items, source, destination, "SDL", "ClientPreload", {".sdl"}, True)
     _process_dir(items, source, destination, outdir="Client",
                  ext={".lnk", ".pdb", ".prd"}, require_ext=False)
-    _process_dir(items, source, destination, "avi", "avi", {".avi", ".bik", ".oggv", ".webm"}, True)
-    _process_dir(items, source, destination, "dat", "dat", {".age", ".loc", ".p2f"}, True)
+    _process_dir(items, source, destination, "avi", "GameVideos", {".avi", ".bik", ".oggv", ".webm"}, True)
+    _process_dir(items, source, destination, "dat", "GameBase", {".age", ".loc", ".p2f"}, True)
 
     # Now, let's spew out our not-image manifests...
     generate_manifest(destination, "ThinExternal.mfs", items, "pl")
@@ -329,8 +329,8 @@ def _make_preloader_manifest():
     dst = _args.destination
 
     items = {}
-    _process_dir(items, src, dst, "Python", "Python", {".pak"}, True)
-    _process_dir(items, src, dst, "SDL", "SDL", {".sdl"}, True)
+    _process_dir(items, src, dst, "Python", "ClientPreload", {".pak"}, True)
+    _process_dir(items, src, dst, "SDL", "ClientPreload", {".sdl"}, True)
 
     abspath = os.path.join(dst, "SecurePreloader.mfs")
     with open(abspath, "w") as mfs:
