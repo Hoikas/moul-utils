@@ -251,6 +251,8 @@ def _make_age_manifest(agefile):
         # Now, we do the fun part and enumerate the sfx
         for i in range(info.getNumPages()):
             path = os.path.join(_args.source, "dat", info.getPageFilename(i, pvMoul))
+            if not os.path.exists(path):
+                continue
             with plasmoul.page(path) as prp:
                 for i in prp.get_keys(plasmoul.plSoundBuffer.class_type):
                     sbuf = prp.get_object(i)
