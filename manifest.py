@@ -19,6 +19,7 @@ import argparse
 import gzip
 import hashlib
 import os, os.path
+import plasmoul
 from PyHSPlasma import *
 import shutil
 import tempfile
@@ -190,7 +191,8 @@ def _do_gzip(infile, outfile):
         # We do this so we don't leak information about the build environment via FileSrv
         filename = os.path.split(outfile)[1]
         with gzip.GzipFile(filename, "wb", fileobj=handle) as gz:
-            _do_file_action(infile, gz.write)
+            with open(infile, "rb") as inhandle:
+                gz.writelines(inhandle)
 
 def _do_md5(fn):
     md5 = hashlib.md5()
@@ -231,7 +233,7 @@ def _make_age_manifest(agefile):
         # Read in age file and get the PRPs...
         res = plResManager()
         res.setVer(pvMoul)
-        info = res.ReadAge(os.path.join(_args.source, "dat", agefile), True)
+        info = res.ReadAge(os.path.join(_args.source, "dat", agefile), False)
         
         # Grab the pages
         for i in range(info.getNumCommonPages(pvMoul)):
@@ -247,20 +249,22 @@ def _make_age_manifest(agefile):
                 mfs.write(line)
         
         # Now, we do the fun part and enumerate the sfx
-        for loc in res.getLocations():
-            for key in res.getKeys(loc, plFactory.ClassIndex("plSoundBuffer")):
-                sbuf = key.object
-                
-                flags = NONE
-                if (sbuf.flags & plSoundBuffer.kOnlyLeftChannel) or (sbuf.flags & plSoundBuffer.kOnlyRightChannel):
-                    flags |= OGG_SPLIT_CHANNEL
-                else:
-                    flags |= OGG_STEREO
-                if sbuf.flags & plSoundBuffer.kStreamCompressed:
-                    flags |= OGG_STREAM
-                line = _do_file(os.path.join("sfx", sbuf.fileName), "GameAudio", flags)
-                if line:
-                    mfs.write(line)
+        for i in range(info.getNumPages()):
+            path = os.path.join(_args.source, "dat", info.getPageFilename(i, pvMoul))
+            with plasmoul.page(path) as prp:
+                for i in prp.get_keys(plasmoul.plSoundBuffer.class_type):
+                    sbuf = prp.get_object(i)
+
+                    flags = NONE
+                    if sbuf.split_channel:
+                        flags |= OGG_SPLIT_CHANNEL
+                    else:
+                        flags |= OGG_STEREO
+                    if sbuf.stream:
+                        flags |= OGG_STREAM
+                    line = _do_file(os.path.join("sfx", sbuf.file_name), "GameAudio", flags)
+                    if line:
+                        mfs.write(line)
 
 def _make_auth_lists():
     raise NotImplementedError("too lazy to support auth lists")
