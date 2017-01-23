@@ -57,6 +57,7 @@ OGG_STREAM = 2
 OGG_STEREO = 4
 ZIPPED = 8
 REDIST_UPDATE = 16
+DELETED = 32
 
 # some helpers
 DONT_COMPRESS = {".age", ".csv", ".fni", ".ini", ".ogg", ".sdl"}
@@ -75,6 +76,9 @@ class ManifestLine:
 
 # global dict of processed files. prevents us from doing a lot of dupe work!
 _processed = {}
+
+# hacks, just hacks...
+_deadPRPs = set()
 
 def _blacklist(fn):
     def nuke(fn):
@@ -118,55 +122,68 @@ def _do_file(file, subfolder=None, flag=NONE):
         print("    WARNING: '%s' does not exist! Skipping..." % file)
         return None
 
-    # First things first: do we need to encrypt the file?
-    ext = os.path.splitext(file)[1].lower()
-    if ext in {".age", ".fni", ".csv"}:
-        abspath, isTemp = _encrypt_file(abspath, plEncryptedStream.kEncXtea)
-    elif ext in {".pak", ".sdl"}:
-        abspath, isTemp = _encrypt_file(abspath, plEncryptedStream.kEncDroid, _droid_key)
-    else:
-        isTemp = False
-
-    # So, if this is an execuatable file, and it doesn't look like a game executable,
-    # Then it is PROBABLY a redist update. Let's flag those here.
-    if ext in CLIENT_EXTENSIONS:
-        for prefix in CLIENT_PREFIXES:
-            if file.lower().startswith(prefix):
-                break
-        else:
-            flag |= REDIST_UPDATE
-
-    # Final preparation for things and stuff
+    # Init final path here -- note, might change later due to compression...
     fn = os.path.split(file)[1]
     if subfolder is not None:
         destpath = os.path.join(_args.destination, subfolder, fn)
     else:
         destpath = os.path.join(_args.destination, fn)
-    outdir = os.path.split(destpath)[0]
-    if not os.path.isdir(outdir):
-        os.makedirs(outdir)
 
     # Get some basic swhizzle for the manifest string.
     line = ManifestLine()
-    line.base_md5 = _do_md5(abspath)
-    line.base_size = os.lstat(abspath).st_size
-
-    # Okay, let's see if this is something we can compress...
-    compressed = ext not in DONT_COMPRESS
-    if compressed:
-        destpath += ".gz"
-        _do_gzip(abspath, destpath)
-        flag |= ZIPPED
-
-        line.compress_md5 = _do_md5(destpath)
-        line.compress_size = os.lstat(destpath).st_size
+    if flag & DELETED:
+        line.base_size = 0
     else:
-        shutil.copy(abspath, destpath)
-        line.compress_md5 = hashlib.md5().hexdigest()
+        line.base_size = os.lstat(abspath).st_size
 
-    # If we created a temporary file, nuke it.
-    if isTemp:
-        os.unlink(abspath)
+    # Zero byte files are fucking deleted! (don't fucking compress it)
+    if line.base_size == 0:
+        _zeroMD5 = hashlib.md5()
+        line.base_md5 = _zeroMD5.hexdigest()
+        line.compress_md5 = _zeroMD5.hexdigest()
+        flag |= DELETED
+    else:
+        line.base_md5 = _do_md5(abspath)
+
+        # Do we need to encrypt the file?
+        ext = os.path.splitext(file)[1].lower()
+        if ext in {".age", ".fni", ".csv"}:
+            abspath, isTemp = _encrypt_file(abspath, plEncryptedStream.kEncXtea)
+        elif ext in {".pak", ".sdl"}:
+            abspath, isTemp = _encrypt_file(abspath, plEncryptedStream.kEncDroid, _droid_key)
+        else:
+            isTemp = False
+
+        # So, if this is an execuatable file, and it doesn't look like a game executable,
+        # Then it is PROBABLY a redist update. Let's flag those here.
+        if ext in CLIENT_EXTENSIONS:
+            for prefix in CLIENT_PREFIXES:
+                if file.lower().startswith(prefix):
+                    break
+            else:
+                flag |= REDIST_UPDATE
+
+        # Ensure output directory exists
+        outdir = os.path.split(destpath)[0]
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+
+        # Okay, let's see if this is something we can compress...
+        compressed = ext not in DONT_COMPRESS
+        if compressed:
+            destpath += ".gz"
+            _do_gzip(abspath, destpath)
+            flag |= ZIPPED
+
+            line.compress_md5 = _do_md5(destpath)
+            line.compress_size = os.lstat(destpath).st_size
+        else:
+            shutil.copy(abspath, destpath)
+            line.compress_md5 = hashlib.md5().hexdigest()
+
+        # If we created a temporary file, nuke it.
+        if isTemp:
+            os.unlink(abspath)
 
     # generate the manifest line
     line.file = file
@@ -265,6 +282,12 @@ def _make_age_manifest(agefile):
                     line = _do_file(os.path.join("sfx", sbuf.file_name), "GameAudio", flags)
                     if line:
                         mfs.write(line)
+
+        # Special Case: Deleted PRPs are generally not in age files.
+        prp_prefix = os.path.join("dat", "%s_District_" % ageName)
+        for i in _deadPRPs:
+            if i.startswith(prp_prefix):
+                mfs.write(_do_file(i, "GameData", DELETED))
 
 def _make_auth_lists():
     raise NotImplementedError("too lazy to support auth lists")
@@ -410,6 +433,16 @@ def _make_droid_key():
     _droid_key = [buf_to_int(key[0:8]), buf_to_int(key[8:16]),
                   buf_to_int(key[16:24]), buf_to_int(key[24:32])]
 
+def _find_dead_prps(source):
+    global _deadPRPs
+    for item in os.listdir(os.path.join(source, "dat")):
+        ext = os.path.splitext(item)[1].lower()
+        if ext != ".prp":
+            continue
+        abspath = os.path.join(source, "dat", item)
+        if os.lstat(abspath).st_size == 0:
+            _deadPRPs.add(os.path.join("dat", item))
+
 if __name__ == "__main__":
     _args = parser.parse_args()
     _make_droid_key()
@@ -430,6 +463,12 @@ if __name__ == "__main__":
             _manifests.append("__auth_lists__")
         if _args.file_preloader:
             _manifests.append("__file_preloader__")
+
+    # Deleted PRP files generally do not appear in .age files, so we will be unable to deal with them
+    # the normal way. So, we need this hack here to check every single PRP to see if it's deleted...
+    # We won't worry about deleted oggs. Too much work to even think about predicting that!
+    if not _args.no_ages:
+        _find_dead_prps(_args.source)
 
     if _args.age:
         agefile = _args.age
