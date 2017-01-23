@@ -45,8 +45,6 @@ _manifest.add_argument("-c", "--client-manifests", help="Generate client manifes
 _age = _manifest.add_mutually_exclusive_group()
 _age.add_argument("-a", "--age", help="Generate a manifest for a specific age")
 _age.add_argument("--no-ages", help="Don't generate any age manifests", action="store_true")
-_age.add_argument("--all-ages", help="Generate manifests for all ages",
-                  action="store_true", default=True)
 
 # final args
 _args = None
@@ -416,8 +414,7 @@ if __name__ == "__main__":
     _args = parser.parse_args()
     _make_droid_key()
 
-    _use_defaults = (not _args.file_preloader and not _args.auth_preloader
-                     and not _args.client_manifests and _args.all_ages)
+    _use_defaults = (not _args.file_preloader and not _args.auth_preloader and not _args.client_manifests)
     _manifests = []
 
     if _use_defaults:
@@ -439,7 +436,7 @@ if __name__ == "__main__":
         if not agefile.endswith(".age"):
             agefile += ".age"
         _manifests.append(agefile)
-    elif _args.all_ages:
+    elif not _args.no_ages:
         # add all the ages to the list
         agedir = os.path.join(_args.source, "dat")
         for i in os.listdir(agedir):
