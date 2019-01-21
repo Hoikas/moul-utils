@@ -430,8 +430,8 @@ def _make_droid_key():
     global _droid_key
 
     key = _args.droid_key
-    _droid_key = [buf_to_int(key[0:8]), buf_to_int(key[8:16]),
-                  buf_to_int(key[16:24]), buf_to_int(key[24:32])]
+    _droid_key = (buf_to_int(key[0:8]), buf_to_int(key[8:16]),
+                  buf_to_int(key[16:24]), buf_to_int(key[24:32]))
 
 def _find_dead_prps(source):
     global _deadPRPs
