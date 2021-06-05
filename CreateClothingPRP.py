@@ -24,7 +24,6 @@
 from __future__ import annotations
 
 import argparse
-from ast import literal_eval as make_tuple
 import itertools
 import json
 import math
@@ -175,19 +174,15 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
         if clGroup := groupNames.get(clItem["group"].lower()):
             ci.group = clGroup
 
-        tint = make_tuple(clItem["tint1"])
-        if tint and len(tint) == 3:
-            ci.defaultTint1 = hsColorRGBA(*tint)
-        else:
-            print(f" Bad tint color #1 ({clItem['tint1']}) specified for {clItem['name']}")
-            ci.defaultTint1 = hsColorRGBA(0,0,0)
-
-        tint = make_tuple(clItem["tint2"])
-        if tint and len(tint) == 3:
-            ci.defaultTint2 = hsColorRGBA(*tint)
-        else:
-            print(f" Bad tint color #2 ({clItem['tint2']}) specified for {clItem['name']}")
-            ci.defaultTint2 = hsColorRGBA(0,0,0)
+        for attr, key in dict(defaultTint1="tint1", defaultTint2="tint2").items():
+            if tint := clItem.get(key):
+                try:
+                    color = hsColorRGBA(*tint)
+                except:
+                    print(f" Bad {key} color specified for {clItem['name']}")
+                    setattr(ci, attr, hsColorRGBA(0.0, 0.0, 0.0))
+                else:
+                    setattr(ci, attr, color)
 
         for meshLOD, meshName in enumerate(clItem.get("meshes", [])):
             if meshKey := FindKeyByName(meshName, sharedMeshKeys):
