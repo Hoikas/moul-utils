@@ -74,7 +74,7 @@ mipKeys = set()
 
 def CheckForAlphaChannel(im: Image) -> bool:
     if "A" in im.getbands():
-        return any((i != 0 or i != 255 for i in im.getchannel("A").tobytes()))
+        return any((i != 0 and i != 255 for i in im.getchannel("A").tobytes()))
     else:
         # HACK: make sure we have alpha channel, otherwise bad things will happen.
         im.putalpha(255)
