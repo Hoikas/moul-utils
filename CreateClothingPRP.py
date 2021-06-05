@@ -128,6 +128,8 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
             # Convert generic image to mipmap
             print(f"Compressing {mipmap}")
             with Image.open(mipmap) as im:
+                if im.mode not in {"RGB", "RGBA"}:
+                    im = im.convert("RGBA")
                 fullAlpha = CheckForAlphaChannel(im)
                 dxt = plBitmap.kDXT5 if fullAlpha else plBitmap.kDXT1
                 # Major Workaround Ahoy
