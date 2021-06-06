@@ -118,7 +118,14 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
     newNode.key.name = f"{pageInfo['agename']}_{pageInfo['name']}"
 
     iconList = {}
-    for mipmap in (input_path.joinpath(i) for i in pageInfo["mipmaps"]):
+    for i in pageInfo["mipmaps"]:
+        if isinstance(i, str):
+            mipmap = input_path.joinpath(i)
+            forceDXT5 = False
+        elif isinstance(i, dict):
+            mipmap = input_path.joinpath(i["name"])
+            forceDXT5 = i.get("forcedxt5", False)
+
         if not mipmap.suffix or mipmap.suffix == ".dds":
             # Load already prepared DDS in as mipmap
             mipmap = mipmap.with_suffix(".dds")
@@ -133,7 +140,7 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
             with Image.open(mipmap) as im:
                 if im.mode not in {"RGB", "RGBA"}:
                     im = im.convert("RGBA")
-                fullAlpha = CheckForAlphaChannel(im)
+                fullAlpha = CheckForAlphaChannel(im) or forceDXT5
                 dxt = plBitmap.kDXT5 if fullAlpha else plBitmap.kDXT1
                 # Major Workaround Ahoy
                 # There is a bug in Cyan's level size algorithm that causes it to not allocate enough memory
