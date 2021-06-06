@@ -44,6 +44,7 @@ except ImportError as e:
 
 ## Arguments
 parser = argparse.ArgumentParser(description="A Utility for Creating Plasma Clothing Pages")
+parser.add_argument("-f", "--fast", action="store_true", help="use fast but low quality compressor")
 parser.add_argument("-i", "--input", help="path to clothing JSON definition")
 parser.add_argument("-o", "--output", default="GehnAdditions.json", help="directory containing the clothing PRP")
 
@@ -71,6 +72,8 @@ plResMgr = plResManager()
 ## Empty set to hold our keys
 sharedMeshKeys = set()
 mipKeys = set()
+
+quality = plMipmap.kBlockQualityUltra
 
 def CheckForAlphaChannel(im: Image) -> bool:
     if "A" in im.getbands():
@@ -151,7 +154,7 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
                     # Hmm... im.reduce() seems to yield garbled images...
                     size = (im.width // pow(2, level), im.height // pow(2, level))
                     resizedIm = im.resize(size)
-                    mm.CompressImage(level, resizedIm.tobytes())
+                    mm.CompressImage(level, resizedIm.tobytes(), quality=quality)
         else:
             raise RuntimeError(f"We were unable to process the mipmap {mipmap}. Is PIL installed?")
 
@@ -241,4 +244,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     input_path = Path(args.input)
     output_path = Path(args.output) if Path(args.output) else input_path.parent
+    if args.fast:
+        quality = plMipmap.kBlockQualityNormal
     main(input_path, output_path)
