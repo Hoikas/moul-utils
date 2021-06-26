@@ -126,8 +126,15 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
             mipmap = input_path.joinpath(i["name"])
             forceDXT5 = i.get("forcedxt5", False)
 
+        # If this mipmap is an icon anywhere, then we need to force it to only be one mip level
+        # this prevents interesting issues in the UI where global level chopping causes the
+        # resolution to not match what the ACA python is expecting.
+        isIcon = any((mipmap.name == i["icon"] for i in pageInfo["clItems"]))
+
         if not mipmap.suffix or mipmap.suffix == ".dds":
             # Load already prepared DDS in as mipmap
+            if isIcon:
+                print(f"WARNING: {mipmap} is used as an icon, you should probably NOT use a .dds file")
             mipmap = mipmap.with_suffix(".dds")
             print(f"Opening {mipmap}")
             with hsFileStream().open(mipmap, fmRead) as fs:
@@ -138,30 +145,45 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
             # Convert generic image to mipmap
             print(f"Compressing {mipmap}")
             with Image.open(mipmap) as im:
-                if im.mode not in {"RGB", "RGBA"}:
-                    im = im.convert("RGBA")
-                fullAlpha = CheckForAlphaChannel(im) or forceDXT5
-                dxt = plBitmap.kDXT5 if fullAlpha else plBitmap.kDXT1
-                # Major Workaround Ahoy
-                # There is a bug in Cyan's level size algorithm that causes it to not allocate enough memory
-                # for the color block in certain mipmaps. I personally have encountered an access violation on
-                # 1x1 DXT5 mip levels -- the code only allocates an alpha block and not a color block. Paradox
-                # reports that if any dimension is smaller than 4px in a mip level, OpenGL doesn't like Cyan generated
-                # data. So, we're going to lop off the last two mip levels, which should be 1px and 2px as the smallest.
-                # This bug is basically unfixable without crazy hacks because of the way Plasma reads in texture data.
-                #     "<Deledrius> I feel like any texture at a 1x1 level is essentially academic.  I mean, JPEG/DXT
-                #                  doesn't even compress that, and what is it?  Just the average color of the whole
-                #                  texture in a single pixel?"
-                # :)
-                numLevels = math.floor(math.log(min(im.width, im.height), 2)) + 1
-                if fullAlpha:
-                    numLevels = max(2, numLevels - 2)
-                mm = plMipmap(mipmap.name, im.width, im.height, numLevels, plMipmap.kDirectXCompression, plBitmap.kRGB8888, dxt)
-                for level in range(numLevels):
-                    # Hmm... im.reduce() seems to yield garbled images...
-                    size = (im.width // pow(2, level), im.height // pow(2, level))
-                    resizedIm = im.resize(size)
-                    mm.CompressImage(level, resizedIm.tobytes(), quality=quality)
+                width = pow(2, math.floor(math.log(im.width, 2)))
+                height = pow(2, math.floor(math.log(im.height, 2)))
+
+                if isIcon:
+                    if im.mode != "RGBA":
+                        im = im.convert("RGBA")
+                    mm = plMipmap(mipmap.name, width, height, 1, plMipmap.kPNGCompression, plBitmap.kRGB8888)
+                    if (im.width, im.height) != (width, height):
+                        im = im.resize((width, height))
+                    buf = bytearray(im.tobytes())
+                    # Dammit, got to swap to BGRA and stupid PIL can't go from RGB to BGR
+                    for i in range(0, len(buf), 4):
+                        buf[i:i+4] = buf[i+2], buf[i+1], buf[i], buf[i+3]
+                    mm.setRawImage(bytes(buf))
+                else:
+                    if im.mode not in {"RGB", "RGBA"}:
+                        im = im.convert("RGBA")
+                    fullAlpha = CheckForAlphaChannel(im) or forceDXT5
+                    dxt = plBitmap.kDXT5 if fullAlpha else plBitmap.kDXT1
+                    # Major Workaround Ahoy
+                    # There is a bug in Cyan's level size algorithm that causes it to not allocate enough memory
+                    # for the color block in certain mipmaps. I personally have encountered an access violation on
+                    # 1x1 DXT5 mip levels -- the code only allocates an alpha block and not a color block. Paradox
+                    # reports that if any dimension is smaller than 4px in a mip level, OpenGL doesn't like Cyan generated
+                    # data. So, we're going to lop off the last two mip levels, which should be 1px and 2px as the smallest.
+                    # This bug is basically unfixable without crazy hacks because of the way Plasma reads in texture data.
+                    #     "<Deledrius> I feel like any texture at a 1x1 level is essentially academic.  I mean, JPEG/DXT
+                    #                  doesn't even compress that, and what is it?  Just the average color of the whole
+                    #                  texture in a single pixel?"
+                    # :)
+                    numLevels = math.floor(math.log(min(width, height), 2)) + 1
+                    if fullAlpha:
+                        numLevels = max(2, numLevels - 2)
+                    mm = plMipmap(mipmap.name, width, height, numLevels, plMipmap.kDirectXCompression, plBitmap.kRGB8888, dxt)
+                    for level in range(numLevels):
+                        # Hmm... im.reduce() seems to yield garbled images...
+                        size = (width // pow(2, level), height // pow(2, level))
+                        resizedIm = im.resize(size)
+                        mm.CompressImage(level, resizedIm.tobytes(), quality=quality)
         else:
             raise RuntimeError(f"We were unable to process the mipmap {mipmap}. Is PIL installed?")
 
