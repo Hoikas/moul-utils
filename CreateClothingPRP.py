@@ -186,6 +186,9 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
         ci = plClothingItem(f"CItm_{clItem['name']}")
         ci.key.location = newPage.location
 
+        # 0 = the default item, 1 = everything else (no Cyan data is 2+)
+        ci.sortOrder = 1
+
         ci.itemName = clItem["name"]
         if clDesc := clItem.get("desc"):
             ci.description = clDesc
