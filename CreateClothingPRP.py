@@ -47,6 +47,7 @@ parser = argparse.ArgumentParser(description="A Utility for Creating Plasma Clot
 parser.add_argument("-f", "--fast", action="store_true", help="use fast but low quality compressor")
 parser.add_argument("-i", "--input", help="path to clothing JSON definition")
 parser.add_argument("-o", "--output", default="GehnAdditions.json", help="directory containing the clothing PRP")
+parser.add_argument("-r", "--round-trip", action="store_true", help="round-trip all clothing PRPs through HSPlasma")
 
 ## Constant name-conversions
 groupNames = {
@@ -91,7 +92,7 @@ def FindKeyByName(keyName: str, ageKeys: Sequence[plKey], localKeys: Union[None,
     # If we haven't already found it, search the entire Age
     return next((key for key in ageKeys if key.name == keyName), None)
 
-def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageInfo: Dict[str, Any]) -> None:
+def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageInfo: Dict[str, Any]) -> plLocation:
     filename = output_path.joinpath(f"{pageInfo['agename']}_District_{pageInfo['name']}.prp")
 
     pageLoc = plLocation(pvMoul)
@@ -246,8 +247,19 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
     plResMgr.AddObject(newPage.location, newNode)
 
     plResMgr.WritePage(filename, newPage)
+    return newPage.location
 
-def main(input_path: Path, output_path: Path) -> None:
+def ProcessClothingJSON(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo) -> Generator[plLocation]:
+    print("Loading clothing instruction file...")
+    with input_path.open("r") as clothingFile:
+        clothingData = json.load(clothingFile)
+        pages = clothingData["pages"]
+
+        for pageInfo in pages:
+            print(f"Creating {pageInfo['name']}...")
+            yield CreatePage(input_path.parent, output_path, gcAgeInfo, pageInfo)
+
+def main(input_path: Path, output_path: Path, round_trip: bool) -> None:
     version = pvMoul
     plResMgr.setVer(version)
 
@@ -262,14 +274,13 @@ def main(input_path: Path, output_path: Path) -> None:
         sharedMeshKeys.update(plResMgr.getKeys(gcapl, plFactory.kSharedMesh))
         mipKeys.update(plResMgr.getKeys(gcapl, plFactory.kMipmap))
 
-    print("Loading clothing instruction file...")
-    with input_path.open("r") as clothingFile:
-        clothingData = json.load(clothingFile)
-        pages = clothingData["pages"]
-
-        for pageInfo in pages:
-            print(f"Creating {pageInfo['name']}...")
-            CreatePage(input_path.parent, output_path, gcAgeInfo, pageInfo)
+    pages = set(ProcessClothingJSON(input_path, output_path, gcAgeInfo))
+    if round_trip:
+        for loc in (i for i in plResMgr.getLocations() if i not in pages):
+            if page := plResMgr.FindPage(loc):
+                print(f"Round-tripping '{page.page}' through HSPlasma...")
+                filename = output_path.joinpath(page.getFilename(plResMgr.getVer()))
+                plResMgr.WritePage(filename, page)
 
 
 if __name__ == '__main__':
@@ -278,4 +289,4 @@ if __name__ == '__main__':
     output_path = Path(args.output) if Path(args.output) else input_path.parent
     if args.fast:
         quality = plMipmap.kBlockQualityNormal
-    main(input_path, output_path)
+    main(input_path, output_path, args.round_trip)
