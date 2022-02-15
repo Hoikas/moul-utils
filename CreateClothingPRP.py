@@ -246,6 +246,9 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
         plResMgr.AddObject(newPage.location, ci)
     plResMgr.AddObject(newPage.location, newNode)
 
+    # Apply object name sorting optimizations.
+    plResMgr.optimizeKeys(newPage.location)
+
     plResMgr.WritePage(filename, newPage)
     return newPage.location
 
@@ -266,6 +269,11 @@ def main(input_path: Path, output_path: Path, round_trip: bool) -> None:
     ## Load in the GlobalClothing Age, for access to common plKeys
     print("Loading GlobalClothing Age...")
     gcAgeInfo = plResMgr.ReadAge(output_path.joinpath("GlobalClothing.age"), True)
+
+    if round_trip:
+        print("Optimizing all PRPs for name lookups...")
+        for i in plResMgr.getLocations():
+            plResMgr.optimizeKeys(i)
 
     ## Load the Shared Mesh and Mipmap keys for searching later
     print("Caching useful plKeys...")
