@@ -42,33 +42,46 @@ def _get_objects_to_spans(key):
 
     # Working with DSpans is never a picnic...
     for span_key, idx in key.object.drawables:
-        dspans = span_key.object
-        diindices = dspans.DIIndices[idx]
-        # Matrix only diindices are transforms, so we don't care about materials...
-        if diindices.flags & plDISpanIndex.kMatrixOnly:
+        if idx == -1:
+            # This is a particle system
             continue
 
-        # So, for each icicle, let's grab the material and stash it
-        for icicle_index in diindices.indices:
-            icicle = dspans.spans[icicle_index]
-            material = dspans.materials[icicle.materialIdx]
-            if material not in _mats_to_objects:
-                _mats_to_objects[material] = []
-            _mats_to_objects[material].append(key.object.owner)
+        dspans = span_key.object
+        try:
+            diindices = dspans.DIIndices[idx]
+            # Matrix only diindices are transforms, so we don't care about materials...
+        except IndexError:
+            print("Crap, idx={} in '{}' didn't work".format(idx, span_key))
+            continue
+        else:
+            if diindices.flags & plDISpanIndex.kMatrixOnly:
+                continue
+
+            # So, for each icicle, let's grab the material and stash it
+            for icicle_index in diindices.indices:
+                icicle = dspans.spans[icicle_index]
+                material = dspans.materials[icicle.materialIdx]
+                if material not in _mats_to_objects:
+                    _mats_to_objects[material] = []
+                _mats_to_objects[material].append(key.object.owner)
 
 def _search_for_layer(tex):
     """Searches all our plLayerInterfaces for a plBitmap named tex"""
-    _layers = []
-    _objects = []
+    _layers = set()
+    _objects = set()
 
     for material in _mats_to_objects:
         layers = material.object.layers + material.object.piggyBacks
         for layer in layers:
             interface = layer.object
             if interface.texture and interface.texture.name == tex:
-                _layers.append(layer)
-                _objects += _mats_to_objects[material]
-    return (_layers, _objects)
+                _layers.add(layer)
+                _objects.update(_mats_to_objects[material])
+
+    return (
+        sorted(_layers, key=lambda x: x.name),
+        sorted(_objects, key=lambda x: x.name)
+    )
 
 
 def report_texture(agefile, tex):
