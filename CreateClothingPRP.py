@@ -71,8 +71,8 @@ typeNames = {
 plResMgr = plResManager()
 
 ## Empty set to hold our keys
-sharedMeshKeys = set()
-mipKeys = set()
+sharedMeshKeys: Set[plKey] = set()
+mipKeys: Set[plKey] = set()
 
 quality = plMipmap.kBlockQualityUltra
 
@@ -84,7 +84,7 @@ def CheckForAlphaChannel(im: Image) -> bool:
         im.putalpha(255)
     return False
 
-def FindKeyByName(keyName: str, ageKeys: Sequence[plKey], localKeys: Union[None, Sequence[plKey]] = None) -> plKey:
+def FindKeyByName(keyName: str, ageKeys: Iterable[plKey], localKeys: Union[None, Iterable[plKey]] = None) -> plKey:
     # Check our local page keylist first, if provided
     if localKeys and (theKey := next((key for key in localKeys if key.name == keyName), None)):
         return theKey
@@ -222,8 +222,23 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
                 else:
                     setattr(ci, attr, color)
 
-        for meshLOD, meshName in enumerate(clItem.get("meshes", [])):
-            if meshKey := FindKeyByName(meshName, sharedMeshKeys):
+        for meshLOD, meshSpec in enumerate(clItem.get("meshes", [])):
+            if isinstance(meshSpec, dict):
+                meshName, meshPage = meshSpec.get("name"), meshSpec.get("page")
+            else:
+                meshName, meshPage = meshSpec, None
+
+            def IterSharedMeshes(keys: Iterable[plKey], page: Optional[str]):
+                if page is not None:
+                    location = next((i for i in plResMgr.getLocations() if plResMgr.FindPage(i).page == page))
+                    for key in keys:
+                        if key.location == location:
+                            yield key
+                else:
+                    for key in keys:
+                        yield key
+
+            if meshKey := FindKeyByName(meshName, IterSharedMeshes(sharedMeshKeys, meshPage)):
                 ci.setMesh(plClothingItem.kLODHigh + meshLOD, meshKey)
 
         for idx, element in enumerate(clItem.get("elements", [])):
