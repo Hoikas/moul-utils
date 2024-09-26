@@ -297,7 +297,10 @@ def main(input_path: Path, output_path: Path, round_trip: bool) -> None:
         sharedMeshKeys.update(plResMgr.getKeys(gcapl, plFactory.kSharedMesh))
         mipKeys.update(plResMgr.getKeys(gcapl, plFactory.kMipmap))
 
-    pages = set(ProcessClothingJSON(input_path, output_path, gcAgeInfo))
+    pages = set()
+    if input_path:
+        pages = set(ProcessClothingJSON(input_path, output_path, gcAgeInfo))
+
     if round_trip:
         for loc in (i for i in plResMgr.getLocations() if i not in pages):
             if page := plResMgr.FindPage(loc):
@@ -308,7 +311,7 @@ def main(input_path: Path, output_path: Path, round_trip: bool) -> None:
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    input_path = Path(args.input)
+    input_path = Path(args.input) if args.input else None
     output_path = Path(args.output) if Path(args.output) else input_path.parent
     if args.fast:
         quality = plMipmap.kBlockQualityNormal
