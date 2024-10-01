@@ -92,6 +92,16 @@ def FindKeyByName(keyName: str, ageKeys: Iterable[plKey], localKeys: Union[None,
     # If we haven't already found it, search the entire Age
     return next((key for key in ageKeys if key.name == keyName), None)
 
+def FilterKeys(keys: Iterable[plKey], page: Optional[str]):
+    if page is not None:
+        location = next((i for i in plResMgr.getLocations() if plResMgr.FindPage(i).page == page))
+        for key in keys:
+            if key.location == location:
+                yield key
+    else:
+        for key in keys:
+            yield key
+
 def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageInfo: Dict[str, Any]) -> plLocation:
     filename = output_path.joinpath(f"{pageInfo['agename']}_District_{pageInfo['name']}.prp")
 
@@ -228,27 +238,32 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
             else:
                 meshName, meshPage = meshSpec, None
 
-            def IterSharedMeshes(keys: Iterable[plKey], page: Optional[str]):
-                if page is not None:
-                    location = next((i for i in plResMgr.getLocations() if plResMgr.FindPage(i).page == page))
-                    for key in keys:
-                        if key.location == location:
-                            yield key
-                else:
-                    for key in keys:
-                        yield key
-
-            if meshKey := FindKeyByName(meshName, IterSharedMeshes(sharedMeshKeys, meshPage)):
+            if meshKey := FindKeyByName(meshName, FilterKeys(sharedMeshKeys, meshPage)):
                 ci.setMesh(plClothingItem.kLODHigh + meshLOD, meshKey)
 
         for idx, element in enumerate(clItem.get("elements", [])):
             #print(f" Adding element #{idx} named '{element['name']}'")
             ci.addElement(element["name"])
             for layeridx in element["layers"]:
-                texName = element["layers"][layeridx]
+                texSpec = element["layers"][layeridx]
                 #print(f"  Adding layer #{layeridx} for texture '{texName}'")
 
-                if mipKey := FindKeyByName(texName, mipKeys, localMipKeys):
+                if isinstance(texSpec, dict):
+                    texName, texPage = texSpec.get("name"), texSpec.get("page")
+                    if texPage:
+                        # We won't be searching all pages because they gave us a specific page name.
+                        # So, we pretend that the page they gave us is the local page and don't pass
+                        # along the rest of the keys.
+                        myLocalMipKeys = FilterKeys(mipKeys, texPage)
+                        myAllMipKeys = None
+                    else:
+                        # They didn't supply a page name, so use the standard logic.
+                        myLocalMipKeys, myAllMipKeys = localMipKeys, mipKeys
+                else:
+                    # This is just a string entry, so use the standard logic.
+                    myLocalMipKeys, myAllMipKeys = localMipKeys, mipKeys
+
+                if mipKey := FindKeyByName(texName, myLocalMipKeys, myAllMipKeys):
                     ci.setElementTexture(idx, int(layeridx), mipKey)
                 else:
                     print(f"  ** Unable to find MipMap named {texName}.  Skipping {element['name']} layer #{layeridx} in {clItem['name']}.")
