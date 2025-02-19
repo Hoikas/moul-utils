@@ -259,9 +259,12 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
                     else:
                         # They didn't supply a page name, so use the standard logic.
                         myLocalMipKeys, myAllMipKeys = localMipKeys, mipKeys
-                else:
+                elif isinstance(texSpec, str):
                     # This is just a string entry, so use the standard logic.
+                    texName = texSpec
                     myLocalMipKeys, myAllMipKeys = localMipKeys, mipKeys
+                else:
+                    raise ValueError
 
                 if mipKey := FindKeyByName(texName, myLocalMipKeys, myAllMipKeys):
                     ci.setElementTexture(idx, int(layeridx), mipKey)
