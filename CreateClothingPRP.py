@@ -47,6 +47,7 @@ parser = argparse.ArgumentParser(description="A Utility for Creating Plasma Clot
 parser.add_argument("-f", "--fast", action="store_true", help="use fast but low quality compressor")
 parser.add_argument("-i", "--input", help="path to clothing JSON definition")
 parser.add_argument("-o", "--output", default="GehnAdditions.json", help="directory containing the clothing PRP")
+parser.add_argument("-p", "--page", help="single-page export from JSON")
 parser.add_argument("-r", "--round-trip", action="store_true", help="round-trip all clothing PRPs through HSPlasma")
 
 ## Constant name-conversions
@@ -203,7 +204,7 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
         plResMgr.AddObject(newPage.location, mm)
 
     ## Keep a list of our local Mipmaps for later
-    localMipKeys = plResMgr.getKeys(pageLoc, plFactory.kMipmap)
+    localMipKeys = plResMgr.getKeys(newPage.location, plFactory.kMipmap)
 
     for clItem in pageInfo["clItems"]:
         ci = plClothingItem(f"CItm_{clItem['name']}")
@@ -252,10 +253,9 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
                     texName, texPage = texSpec.get("name"), texSpec.get("page")
                     if texPage:
                         # We won't be searching all pages because they gave us a specific page name.
-                        # So, we pretend that the page they gave us is the local page and don't pass
-                        # along the rest of the keys.
-                        myLocalMipKeys = FilterKeys(mipKeys, texPage)
-                        myAllMipKeys = None
+                        # So, we pretend that the page they gave us is the only set of keys
+                        myLocalMipKeys = None
+                        myAllMipKeys = FilterKeys(mipKeys, texPage)
                     else:
                         # They didn't supply a page name, so use the standard logic.
                         myLocalMipKeys, myAllMipKeys = localMipKeys, mipKeys
@@ -266,7 +266,7 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
                 else:
                     raise ValueError
 
-                if mipKey := FindKeyByName(texName, myLocalMipKeys, myAllMipKeys):
+                if mipKey := FindKeyByName(texName, myAllMipKeys, myLocalMipKeys):
                     ci.setElementTexture(idx, int(layeridx), mipKey)
                 else:
                     print(f"  ** Unable to find MipMap named {texName}.  Skipping {element['name']} layer #{layeridx} in {clItem['name']}.")
@@ -285,17 +285,19 @@ def CreatePage(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, pageIn
     plResMgr.WritePage(filename, newPage)
     return newPage.location
 
-def ProcessClothingJSON(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo) -> Generator[plLocation]:
+def ProcessClothingJSON(input_path: Path, output_path: Path, gcAgeInfo: plAgeInfo, single_page: Optional[str] = None) -> Generator[plLocation]:
     print("Loading clothing instruction file...")
     with input_path.open("r") as clothingFile:
         clothingData = json.load(clothingFile)
         pages = clothingData["pages"]
+        if single_page:
+            pages = (i for i in pages if i["name"] == single_page)
 
         for pageInfo in pages:
             print(f"Creating {pageInfo['name']}...")
             yield CreatePage(input_path.parent, output_path, gcAgeInfo, pageInfo)
 
-def main(input_path: Path, output_path: Path, round_trip: bool) -> None:
+def main(input_path: Path, output_path: Path, round_trip: bool, single_page: Optional[str] = None) -> None:
     version = pvMoul
     plResMgr.setVer(version)
 
@@ -317,7 +319,7 @@ def main(input_path: Path, output_path: Path, round_trip: bool) -> None:
 
     pages = set()
     if input_path:
-        pages = set(ProcessClothingJSON(input_path, output_path, gcAgeInfo))
+        pages = set(ProcessClothingJSON(input_path, output_path, gcAgeInfo, single_page))
 
     if round_trip:
         for loc in (i for i in plResMgr.getLocations() if i not in pages):
@@ -331,6 +333,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     input_path = Path(args.input) if args.input else None
     output_path = Path(args.output) if Path(args.output) else input_path.parent
+    single_page = args.page if args.page else None
     if args.fast:
         quality = plMipmap.kBlockQualityNormal
-    main(input_path, output_path, args.round_trip)
+    main(input_path, output_path, args.round_trip, single_page)
