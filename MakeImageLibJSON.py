@@ -28,6 +28,7 @@ from ordered_set import OrderedSet
 from PyHSPlasma import *
 
 _parser = argparse.ArgumentParser()
+_parser.add_argument("--clean", action="store_true", help="delete images not consumed by the json")
 _parser.add_argument("-d", "--destination", help="Path to extract to")
 _parser.add_argument("input", nargs="+")
 
@@ -57,7 +58,7 @@ def _handle_mipmap(output_path: Path, mipmap: plMipmap, library: bool):
 
     # Can we find it?
     nameLower = name.lower()
-    potentialImageNames = [f"{nameLower}.png", f"{nameLower}.tga", f"{nameLower}.jpg", f"{nameLower}.jpeg"]
+    potentialImageNames = [f"{nameLower}.tga", f"{nameLower}.png", f"{nameLower}.jpg", f"{nameLower}.jpeg"]
     foundImagePath = next(filter(None, (srcImages.get(i) for i in potentialImageNames)), None)
     if foundImagePath is None:
         settings["$comment"] = "Source image not found!"
@@ -67,7 +68,6 @@ def _handle_mipmap(output_path: Path, mipmap: plMipmap, library: bool):
 
     settings["color"] = foundImagePath.name
     if foundImagePath.suffix.lower() in {".jpg", ".jpeg"}:
-        # FIXME: Assumes lowercase filenames
         potentialAlphaNames = [
             f"alpha_{nameLower}.png",
             f"alpha_{nameLower}.tga",
