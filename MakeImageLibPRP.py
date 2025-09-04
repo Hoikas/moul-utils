@@ -55,6 +55,7 @@ def _add_object(mgr: plResManager, pKO: hsKeyedObject) -> None:
     mgr.AddObject(location, pKO)
 
 def _create_object(mgr: plResManager, pClass: Type[KeyedT], name: str, *args, **kwargs) -> KeyedT:
+    assert issubclass(pClass, hsKeyedObject)
     pObj = pClass(name, *args, **kwargs)
     _add_object(mgr, pObj)
     return pObj
@@ -79,7 +80,7 @@ def _handle_alpha_flag(imMipmap: plMipmap, alphaChannel: bytes):
     else:
         imMipmap.flags |= plBitmap.kAlphaChannelFlag
 
-def _add_image(input_path: Path, mgr: plResManager, imSettings) -> plKey:
+def _add_image(input_path: Path, mgr: plResManager, imSettings) -> Optional[plKey]:
     if isinstance(imSettings, dict):
         imName = imSettings.get("name")
         imColorPath = imSettings.get("color")
