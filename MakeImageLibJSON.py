@@ -118,7 +118,7 @@ def _make_json_file(output_path: Path, input_path: Path):
     jsonFile["object"] = dict()
     jsonFile["images"] = []
 
-    imageLibModKeys: List[plImageLibMod] = mgr.getKeys(page.location, plFactory.kImageLibMod)
+    imageLibModKeys: List[plKey[plImageLibMod]] = mgr.getKeys(page.location, plFactory.kImageLibMod)
     allMipMapKeys: OrderedSet[plKey[plMipmap]] = OrderedSet(mgr.getKeys(page.location, plFactory.kMipmap))
     imLibMipMapKeys: OrderedSet[plKey[plMipmap]] = OrderedSet([j for i in imageLibModKeys for j in i.object.images])
 
@@ -132,7 +132,7 @@ def _make_json_file(output_path: Path, input_path: Path):
 
     # We only support one ImageLibMod per JSON file (because having more than one
     # is kind of silly). So, grab the first one.
-    imageLibMod: plImageLibMod = next(iter(imageLibModKeys))
+    imageLibMod: plKey[plImageLibMod] = next(iter(imageLibModKeys))
     jsonFile["object"]["name"] = imageLibMod.object.target.name
     jsonFile["object"]["library"] = imageLibMod.name
 
