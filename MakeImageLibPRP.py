@@ -168,13 +168,14 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings) -> Optional[plKe
             else:
                 if not imAlphaPath:
                     imAlpha = imColor
+                    imAlphaPath = imColorPath
                 else:
                     imAlpha = stack.push(Image.open(imAlphaPath))
                 if imAlpha.mode not in {"L", "RGBA"}:
                     imAlpha = imAlpha.convert("RGBA").getchannel(3)
                 elif imAlpha.mode == "RGBA":
                     imAlpha = imAlpha.getchannel(3)
-                logging.info(f"Copying RLE (alpha) data '{imColorPath.name}' into Mipmap '{imName}'")
+                logging.info(f"Copying RLE (alpha) data '{imAlphaPath.name}' into Mipmap '{imName}'")
                 imMipmap.setAlphaData(imAlpha.tobytes())
             _handle_alpha_flag(imMipmap, imMipmap.extractAlphaData())
         else:
@@ -197,7 +198,7 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings) -> Optional[plKe
                     ]
                 )
             else:
-                logging.info(f"No alpha image file for '{imColorPath}' (using whatever is in the color file)")
+                logging.debug(f"No alpha image file for '{imColorPath}' (using whatever is in the color file)")
             logging.info(f"Storing level #0 of {imName}")
             imMipmap.setLevel(0, _bgra(imColor.tobytes(), 4))
             _handle_alpha_flag(imMipmap, imColor.getchannel(3).tobytes())
