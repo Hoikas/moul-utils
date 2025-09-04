@@ -31,19 +31,19 @@ _parser = argparse.ArgumentParser()
 _parser.add_argument("input", nargs="+")
 _parser.add_argument("-o", "--output")
 
-def _create_res_mgr(page: Dict[str, Any]) -> Tuple[plResManager, plPageInfo]:
+def _create_res_mgr(settings: Dict[str, Any]) -> Tuple[plResManager, plPageInfo]:
     mgr = plResManager()
     mgr.setVer(pvMoul)
 
     location = plLocation(mgr.getVer())
-    location.prefix = settings["page"]["prefix"]
-    location.page = settings["page"]["suffix"]
+    location.prefix = settings["prefix"]
+    location.page = settings["suffix"]
     if location.prefix < 0:
         location.flags |= plLocation.kReserved
 
     page = plPageInfo()
-    page.age = settings["page"]["age"]
-    page.page = settings["page"]["name"]
+    page.age = settings["age"]
+    page.page = settings["name"]
     page.location = location
     mgr.AddPage(page)
 
