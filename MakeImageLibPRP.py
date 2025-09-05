@@ -28,6 +28,7 @@ from PIL import Image
 from PyHSPlasma import *
 
 _parser = argparse.ArgumentParser()
+_parser.add_argument("--lossless", action="store_true", help="prefer lossless compression")
 _parser.add_argument("input", nargs="+")
 _parser.add_argument("-o", "--output")
 
@@ -80,7 +81,7 @@ def _handle_alpha_flag(imMipmap: plMipmap, alphaChannel: bytes):
     else:
         imMipmap.flags |= plBitmap.kAlphaChannelFlag
 
-def _add_image(input_path: Path, mgr: plResManager, imSettings) -> Optional[plKey]:
+def _add_image(input_path: Path, mgr: plResManager, imSettings, lossless: bool) -> Optional[plKey]:
     if isinstance(imSettings, dict):
         imName = imSettings.get("name")
         imColorPath = imSettings.get("color")
@@ -136,8 +137,8 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings) -> Optional[plKe
             } & {".jpeg", ".jpg"}
         )
 
-        # Create the final mipmap now for stuffing purposes.
-        compType = plMipmap.kJPEGCompression if isJPEG else plMipmap.kPNGCompression
+        # Create the final mipmap now for stuffing purposes
+        compType = plMipmap.kJPEGCompression if isJPEG or not lossless else plMipmap.kPNGCompression
         imMipmap = _create_object(
             mgr, plMipmap, imName, imColor.width, imColor.height,
             1, compType, plBitmap.kRGB8888
@@ -203,10 +204,15 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings) -> Optional[plKe
             imMipmap.setLevel(0, _bgra(imColor.tobytes(), 4))
             _handle_alpha_flag(imMipmap, imColor.getchannel(3).tobytes())
 
+            # If this is a jpeg mipmap, then compress it. Note that HSPlasma
+            # won't recompress any JPEG that's already compressed.
+            if imMipmap.compressionType == plBitmap.kJPEGCompression:
+                imMipmap.CompressJPEG()
+
     if storeInLibrary:
         return imMipmap.key
 
-def make_image_prp(input_path: Path, output_path: Path, settings: Dict[str, Any]):
+def make_image_prp(input_path: Path, output_path: Path, settings: Dict[str, Any], lossless: bool):
     mgr, page = _create_res_mgr(settings["page"])
 
     sceneNode = _create_object(mgr, plSceneNode, f"{page.age}_{page.page}")
@@ -218,7 +224,7 @@ def make_image_prp(input_path: Path, output_path: Path, settings: Dict[str, Any]
     sceneObj.sceneNode = sceneNode.key
 
     for imSettings in settings["images"]:
-        if imKey := _add_image(input_path, mgr, imSettings):
+        if imKey := _add_image(input_path, mgr, imSettings, lossless):
             imageLib.addImage(imKey)
 
     mgr.optimizeKeys(page.location)
@@ -254,4 +260,4 @@ if __name__ == "__main__":
         else:
             current_output_path = output_path
 
-        make_image_prp(input_file_path.parent, current_output_path, settings)
+        make_image_prp(input_file_path.parent, current_output_path, settings, args.lossless)
