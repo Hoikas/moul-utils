@@ -125,7 +125,7 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings) -> Optional[plKe
         else:
             imMipmap.flags |= plBitmap.kAlphaChannelFlag
         _add_object(mgr, imMipmap)
-        return imMipmap.key
+        return imMipmap.key if storeInLibrary else None
 
     with ExitStack() as stack:
         imColor = stack.push(Image.open(imColorPath))
