@@ -20,6 +20,7 @@ import argparse
 from contextlib import ExitStack
 import json
 import logging
+import math
 from pathlib import Path
 import sys
 from typing import *
@@ -31,6 +32,9 @@ _parser = argparse.ArgumentParser()
 _parser.add_argument("--lossless", action="store_true", help="prefer lossless compression")
 _parser.add_argument("input", nargs="+")
 _parser.add_argument("-o", "--output")
+
+def _ensure_power_of_two(value):
+    return pow(2, math.floor(math.log(value, 2)))
 
 def _create_res_mgr(settings: Dict[str, Any]) -> Tuple[plResManager, plPageInfo]:
     mgr = plResManager()
@@ -82,6 +86,9 @@ def _handle_alpha_flag(imMipmap: plMipmap, alphaChannel: bytes):
         imMipmap.flags |= plBitmap.kAlphaChannelFlag
 
 def _add_image(input_path: Path, mgr: plResManager, imSettings, lossless: bool) -> Optional[plKey]:
+    desiredSize = tuple()
+    resize = True
+
     if isinstance(imSettings, dict):
         imName = imSettings.get("name")
         imColorPath = imSettings.get("color")
@@ -90,6 +97,13 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings, lossless: bool) 
             imAlphaPath = Path(input_path, imAlphaPath)
         storeInLibrary = imSettings.get("library", True)
         flags = imSettings.get("flags", [])
+        if "resize" in imSettings:
+            if isinstance(imSettings["resize"], list):
+                desiredSize = tuple(imSettings["resize"])
+            elif isinstance(imSettings["resize"], bool):
+                resize = False
+            else:
+                raise ValueError(imSettings["resize"])
     else:
         imColorPath = imSettings
         # If the color file prefixed with "ALPHA_" exists, use that.
@@ -117,6 +131,9 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings, lossless: bool) 
     # If it's a DDS file, this is a special case. Use DirectX compression and move along.
     if imColorPath.suffix.lower() == ".dds":
         logging.warning(f"'{imColorPath}' Will be imported directly to '{imName}'.")
+        if desiredSize:
+            logging.warning("The resize you asked for will NOT be performed!")
+
         with hsFileStream().open(imColorPath, fmRead) as fs:
             dds = plDDSurface()
             dds.read(fs)
@@ -136,6 +153,20 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings, lossless: bool) 
                 imAlphaPath.suffix.lower() if imAlphaPath else ""
             } & {".jpeg", ".jpg"}
         )
+
+        if resize and not desiredSize:
+            desiredSize = (
+                _ensure_power_of_two(imColor.width),
+                _ensure_power_of_two(imColor.height)
+            )
+            if desiredSize != imColor.size:
+                logging.warning("This image should be POT")
+
+        if desiredSize and imColor.size != desiredSize:
+            if isJPEG:
+                logging.warning("The resize you asked for will NOT be performed!")
+            else:
+                imColor = imColor.resize(desiredSize)
 
         # Create the final mipmap now for stuffing purposes
         compType = plMipmap.kJPEGCompression if isJPEG or not lossless else plMipmap.kPNGCompression
@@ -185,6 +216,8 @@ def _add_image(input_path: Path, mgr: plResManager, imSettings, lossless: bool) 
             if imAlphaPath:
                 logging.info(f"Combining '{imColorPath}' and {imAlphaPath}")
                 imAlpha = stack.push(Image.open(imAlphaPath))
+                if imAlpha.size != desiredSize:
+                    imAlpha = imAlpha.resize(desiredSize)
                 if imAlpha.mode not in {"L", "RGBA"}:
                     imAlpha = imAlpha.convert("RGBA").getchannel(3)
                 elif imAlpha.mode == "RGBA":
