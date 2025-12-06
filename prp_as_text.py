@@ -73,8 +73,6 @@ def main(page):
     ramStream = PyHSPlasma.hsRAMStream
 
     for pTypeId in sorted(plResMgr.getTypes(pageLoc)):
-        print(f"Type: {classNameFunc(pTypeId)}")
-
         for key in sorted(plResMgr.getKeys(pageLoc, pTypeId)):
             pKeyedObj = key.object
             if isinstance(pKeyedObj, pHashClasses) and not isinstance(pKeyedObj, pNoHashClasses):
@@ -88,8 +86,8 @@ def main(page):
             else:
                 value = "NULL"
 
-            print(f"\t{key.name} : {key}")
-            print(indent(value, "\t\t"))
+            print(f"{classNameFunc(pTypeId)} {key.name} : {key}")
+            print(indent(value, "\t"))
 
 if __name__ == '__main__':
     main(sys.argv[1])
