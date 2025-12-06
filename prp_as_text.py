@@ -51,10 +51,15 @@ pNoHashClasses = (PyHSPlasma.plDynamicTextMap,)
 
 def main(page):
     # Python tries to be "helpful" on Windows by converting \n to \r\n.
-    # Therefore we must change the mode of stdout.
+    # Disable this automatic translation (except when stdout is an interactive console, to avoid breakage).
     if sys.platform == "win32":
-        import os, msvcrt
-        msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+        try:
+            stdout_isatty = sys.stdout.isatty()
+        except AttributeError:
+            stdout_isatty = False
+
+        if not stdout_isatty:
+            sys.stdout.reconfigure(newline="")
 
     version = PyHSPlasma.pvMoul
     plResMgr.setVer(version)
