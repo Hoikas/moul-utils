@@ -49,6 +49,8 @@ pHashClasses = (
 ## need to be visualized for reasons.
 pNoHashClasses = (PyHSPlasma.plDynamicTextMap,)
 
+prcHeader = '<?xml version="1.0" encoding="utf-8"?>\n\n'
+
 def main(page):
     # Python tries to be "helpful" on Windows by converting \n to \r\n.
     # Disable this automatic translation (except when stdout is an interactive console, to avoid breakage).
@@ -82,6 +84,7 @@ def main(page):
                 value = h.hexdigest()
             elif pKeyedObj is not None:
                 value = pKeyedObj.toPrc(PyHSPlasma.pfPrcHelper.kExcludeTextureData)
+                value = value.removeprefix(prcHeader)
             else:
                 value = "NULL"
 
