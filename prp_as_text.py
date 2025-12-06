@@ -85,7 +85,7 @@ def main(page):
             else:
                 value = "NULL"
 
-            print(f"\t{key.name} : {key}".replace("\r\n", "\n"))
+            print(f"\t{key.name} : {key}")
             print(indent(value, "\t\t"))
 
 if __name__ == '__main__':
