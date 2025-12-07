@@ -22,6 +22,7 @@
     ./prp_as_text.py pagename.prp
 """
 
+import argparse
 from hashlib import sha256 as hashFunc
 import sys
 
@@ -50,18 +51,7 @@ pNoHashClasses = (PyHSPlasma.plDynamicTextMap,)
 
 prcHeader = '<?xml version="1.0" encoding="utf-8"?>\n\n'
 
-def main(page):
-    # Python tries to be "helpful" on Windows by converting \n to \r\n.
-    # Disable this automatic translation (except when stdout is an interactive console, to avoid breakage).
-    if sys.platform == "win32":
-        try:
-            stdout_isatty = sys.stdout.isatty()
-        except AttributeError:
-            stdout_isatty = False
-
-        if not stdout_isatty:
-            sys.stdout.reconfigure(newline="")
-
+def dump_prp_file(page):
     version = PyHSPlasma.pvMoul
     plResMgr.setVer(version)
 
@@ -87,8 +77,27 @@ def main(page):
             else:
                 print("\tNULL")
 
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("prp", help="PRP file to dump")
+
+    args = ap.parse_args()
+
+    # Python tries to be "helpful" on Windows by converting \n to \r\n.
+    # Disable this automatic translation (except when stdout is an interactive console, to avoid breakage).
+    if sys.platform == "win32":
+        try:
+            stdout_isatty = sys.stdout.isatty()
+        except AttributeError:
+            stdout_isatty = False
+
+        if not stdout_isatty:
+            sys.stdout.reconfigure(newline="")
+
+    dump_prp_file(args.prp)
+
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main()
 
     """
     # temp hackage for timing...
