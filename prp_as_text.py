@@ -24,7 +24,6 @@
 
 from hashlib import sha256 as hashFunc
 import sys
-from textwrap import indent
 
 try:
     import PyHSPlasma
@@ -74,20 +73,19 @@ def main(page):
 
     for pTypeId in sorted(plResMgr.getTypes(pageLoc)):
         for key in sorted(plResMgr.getKeys(pageLoc, pTypeId)):
+            print(f"{classNameFunc(pTypeId)} {key.name} : {key}")
             pKeyedObj = key.object
             if isinstance(pKeyedObj, pHashClasses) and not isinstance(pKeyedObj, pNoHashClasses):
                 ram = ramStream(version)
                 pKeyedObj.write(ram, plResMgr)
                 h = hashFunc(ram.buffer)
-                value = h.hexdigest()
+                print(f"\t{h.hexdigest()}")
             elif pKeyedObj is not None:
                 value = pKeyedObj.toPrc(PyHSPlasma.pfPrcHelper.kExcludeTextureData)
                 value = value.removeprefix(prcHeader)
+                print(value)
             else:
-                value = "NULL"
-
-            print(f"{classNameFunc(pTypeId)} {key.name} : {key}")
-            print(indent(value, "\t"))
+                print("\tNULL")
 
 if __name__ == '__main__':
     main(sys.argv[1])
