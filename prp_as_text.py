@@ -24,6 +24,7 @@
 
 import argparse
 from hashlib import sha256 as hashFunc
+import re
 import sys
 
 try:
@@ -51,7 +52,7 @@ pNoHashClasses = (PyHSPlasma.plDynamicTextMap,)
 
 prcHeader = '<?xml version="1.0" encoding="utf-8"?>\n\n'
 
-def dump_prp_file(page):
+def dump_prp_file(page, *, hide_obj_ids=True):
     version = PyHSPlasma.pvMoul
     plResMgr.setVer(version)
 
@@ -73,12 +74,15 @@ def dump_prp_file(page):
             elif pKeyedObj is not None:
                 value = pKeyedObj.toPrc(PyHSPlasma.pfPrcHelper.kExcludeTextureData)
                 value = value.removeprefix(prcHeader)
+                if hide_obj_ids:
+                    value = re.sub(r' ObjID="[0-9]{1,10}"', "", value)
                 print(value)
             else:
                 print("\tNULL")
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--show-obj-ids", action="store_true", help="Don't hide ObjIDs in PRC text")
     ap.add_argument("prp", help="PRP file to dump")
 
     args = ap.parse_args()
@@ -94,7 +98,7 @@ def main():
         if not stdout_isatty:
             sys.stdout.reconfigure(newline="")
 
-    dump_prp_file(args.prp)
+    dump_prp_file(args.prp, hide_obj_ids=not args.show_obj_ids)
 
 if __name__ == '__main__':
     main()
